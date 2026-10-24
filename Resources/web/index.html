@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}*,*::before,*::after{box-sizing:border-box}</style></head><body>
+<title>RoomShot</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: field-survey tool. Sticky drawing sheet on top (phone) / left (desktop), measurement list below / right. */
+:root{
+  --paper:#F2F5F3; --sheet:#FFFFFF; --ink:#1B2420; --mute:#5E6B66; --line:#D3DBD7;
+  --accent:#E0362C; --accent-soft:#FCE6E3; --fill:#EAF0ED; --grid:#E4EAE7; --ok:#2E7D4F;
+  --display:'Barlow Condensed','Arial Narrow',system-ui,sans-serif;
+  --body:'Barlow',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0F1412; --sheet:#161D1A; --ink:#E4EBE7; --mute:#93A29C; --line:#2A3631;
+  --accent:#FF5A4E; --accent-soft:#3A1E1B; --fill:#1D2723; --grid:#1B2421; --ok:#5FC28A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0F1412; --sheet:#161D1A; --ink:#E4EBE7; --mute:#93A29C; --line:#2A3631;
+  --accent:#FF5A4E; --accent-soft:#3A1E1B; --fill:#1D2723; --grid:#1B2421; --ok:#5FC28A; color-scheme:dark}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--paper)}
+button{font:inherit;color:inherit}
+.top{display:flex;align-items:center;gap:10px;padding-block:12px 8px}
+.brand{font-family:var(--display);font-weight:700;font-size:24px;letter-spacing:.02em;text-transform:uppercase;margin-right:auto}
+.brand span{color:var(--accent)}
+.bt{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--sheet);border-radius:999px;padding:7px 14px 7px 11px;font-weight:600;font-size:14px;cursor:pointer}
+.bt .dot{width:9px;height:9px;border-radius:50%;background:var(--mute)}
+.bt[data-s="on"] .dot{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 25%,transparent)}
+.bt[data-s="busy"] .dot{background:var(--accent);animation:pulse 1s infinite}
+.bt[data-s="na"]{color:var(--mute)}
+@keyframes pulse{50%{opacity:.3}}
+.icon-btn{border:1px solid var(--line);background:var(--sheet);border-radius:10px;width:38px;height:38px;display:grid;place-items:center;cursor:pointer}
+.rooms{display:flex;gap:6px;overflow-x:auto;padding-block:2px 10px;scrollbar-width:none}
+.rooms::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:transparent;border-radius:8px;padding:6px 12px;font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip.add{color:var(--accent);border-style:dashed}
+.wrap{display:grid;gap:16px;padding-block:0 32px}
+.draw{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-bottom:8px;min-width:0}
+.tabs{display:flex;gap:2px;background:var(--line);padding:2px;border-radius:9px;margin-bottom:8px}
+.tabs button{flex:1;border:0;background:transparent;padding:7px;border-radius:7px;font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;color:var(--mute)}
+.tabs button.on{background:var(--sheet);color:var(--ink)}
+.sheet{background:var(--sheet);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.sheet svg{display:block;width:100%;height:auto;max-height:44vh;margin:auto}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0 0}
+.stats div{min-width:0}
+.stats dt{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);font-weight:600}
+.stats dd{margin:0;font-family:var(--mono);font-size:13.5px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.edit{min-width:0}
+.ph{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:4px 0 6px}
+.ph h2{font-family:var(--display);font-size:20px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;margin:0}
+.hint{color:var(--mute);font-size:13px;margin:0 0 10px;max-width:60ch}
+.list{background:var(--sheet);border:1px solid var(--line);border-radius:12px}
+.row{display:grid;align-items:center;gap:8px;padding:6px 8px 6px 12px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row.walls{grid-template-columns:30px minmax(0,1.4fr) minmax(0,1fr) 30px}
+.row.pts{grid-template-columns:24px repeat(3,minmax(0,1fr)) 30px}
+.row.hd{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);font-weight:600;padding-block:8px 4px}
+.num{font-family:var(--display);font-weight:700;font-size:17px;color:var(--mute)}
+.cell{width:100%;min-height:40px;text-align:left;border:1.5px solid var(--line);background:var(--paper);border-radius:8px;padding:6px 10px;font-family:var(--mono);font-size:15px;font-variant-numeric:tabular-nums;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell.empty{color:var(--mute)}
+.cell.armed{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.cell.armed::before{content:"AIM ";font-family:var(--display);font-weight:700;letter-spacing:.06em;color:var(--accent);font-size:13px}
+.cell.auto{border-style:dashed;cursor:default;color:var(--mute)}
+input.cell{cursor:text;outline:none;border-color:var(--ink)}
+.del{width:30px;height:30px;border:0;background:transparent;color:var(--mute);border-radius:6px;cursor:pointer;font-size:18px}
+.del:hover{background:var(--paper);color:var(--accent)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+.btn{border:1px solid var(--line);background:var(--sheet);border-radius:9px;padding:8px 14px;font-weight:600;cursor:pointer}
+.btn.pri{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.btn.warn{color:var(--accent)}
+.btn.warn.sure{background:var(--accent);color:#fff;border-color:var(--accent)}
+.field{display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px;align-items:center;margin:8px 0}
+.field label{font-size:13px;color:var(--mute);font-weight:600}
+.txt,select{width:100%;border:1.5px solid var(--line);background:var(--sheet);border-radius:8px;padding:8px 10px;font:inherit;color:var(--ink)}
+.switch{display:flex;gap:10px;align-items:center;font-size:14px;margin:10px 0;cursor:pointer}
+.switch input{width:20px;height:20px;accent-color:var(--accent)}
+.section-gap{height:14px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;z-index:30;max-width:calc(100vw - 32px)}
+#toast.show{opacity:1;transform:translateX(-50%)}
+.modal{position:fixed;inset:0;background:color-mix(in srgb,var(--ink) 45%,transparent);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.modal .card{background:var(--sheet);width:min(560px,100%);max-height:88vh;overflow:auto;border-radius:16px 16px 0 0;padding:18px max(18px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px))}
+.card h3{font-family:var(--display);text-transform:uppercase;letter-spacing:.03em;font-size:22px;margin:0 0 10px}
+.card p{margin:6px 0 10px;color:var(--mute);font-size:14px}
+.card img{width:100%;border:1px solid var(--line);border-radius:8px}
+.mono{font-family:var(--mono);font-size:12px;word-break:break-all;background:var(--paper);border-radius:6px;padding:8px}
+textarea.txt{min-height:90px;font-family:var(--mono);font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;background:var(--sheet);padding:8px 14px;font-weight:600;cursor:pointer}
+.seg button.on{background:var(--ink);color:var(--paper)}
+@media (min-width:900px){
+  .wrap{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);align-items:start}
+  .draw{top:calc(env(safe-area-inset-top,0px) + 8px)}
+  .sheet svg{max-height:66vh}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="top">
+  <div class="brand">Room<span>Shot</span></div>
+  <button class="bt" id="bt" data-s="off"><i class="dot"></i><span id="btLabel">Connect meter</span></button>
+  <button class="icon-btn" id="gear" aria-label="Settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+</header>
+<nav class="rooms" id="rooms"></nav>
+<main class="wrap">
+  <section class="draw">
+    <div class="tabs" id="tabs"><button data-tab="plan">Plan</button><button data-tab="section">Section</button><button data-tab="3d">3D</button></div>
+    <div class="sheet" id="sheet"></div>
+    <dl class="stats" id="stats"></dl>
+  </section>
+  <section class="edit" id="edit"></section>
+</main>
+<div id="toast" role="status"></div>
+<div class="modal" id="modal" hidden><div class="card" id="mcard"></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// ---------- units ----------
+const IN=0.0254, FT=0.3048;
+const UFR={'½':'1/2','¼':'1/4','¾':'3/4','⅛':'1/8','⅜':'3/8','⅝':'5/8','⅞':'7/8'};
+const FRG=['','⅛','¼','⅜','½','⅝','¾','⅞'];
+function fmt(m){
+  if(m==null||isNaN(m)) return '—';
+  if(S.units==='met') return (Math.round(m*1000)/1000).toFixed(Math.abs(m)<10?3:2)+' m';
+  const neg=m<0; let e=Math.round(Math.abs(m)/IN*8);
+  const ft=Math.floor(e/96); e-=ft*96; const inch=Math.floor(e/8), fr=e%8;
+  const ins=(inch||!fr?inch:'')+FRG[fr]+'"';
+  return (neg?'−':'')+(ft?ft+"' ":'')+ins;
+}
+function fmtArea(a){return S.units==='met'?a.toFixed(1)+' m²':Math.round(a*10.7639)+' ft²'}
+function fmtVol(v){return S.units==='met'?v.toFixed(1)+' m³':Math.round(v*35.3147).toLocaleString()+' ft³'}
+function parseLen(raw){
+  let s=String(raw).trim().toLowerCase().replace(/[½¼¾⅛⅜⅝⅞]/g,c=>' '+UFR[c]).replace(/−/g,'-').replace(/[’′]/g,"'").replace(/[”″]/g,'"');
+  if(!s) return null; let m;
+  if(m=s.match(/^(-?[\d.]+)\s*mm$/)) return +m[1]/1000;
+  if(m=s.match(/^(-?[\d.]+)\s*cm$/)) return +m[1]/100;
+  if(m=s.match(/^(-?[\d.]+)\s*m$/)) return +m[1];
+  if(S.units==='met'&&/^-?[\d.]+$/.test(s)) return +s;
+  let neg=false; if(s[0]==='-'){neg=true;s=s.slice(1).trim()}
+  let ft=0,inch=0; const fm=s.match(/^([\d.]+)\s*(?:'|ft|feet)\s*-?\s*/);
+  if(fm){ft=+fm[1];s=s.slice(fm[0].length)}
+  const inMark=/("|in|inch|inches)\s*$/.test(s); s=s.replace(/("|in|inch|inches)\s*$/,'').trim();
+  if(s){const im=s.match(/^([\d.]+)?\s*(?:(\d+)\/(\d+))?$/); if(!im||(!im[1]&&!im[2])) return null;
+    if(!fm&&!inMark&&!im[2]){ft=+im[1]} else {if(im[1]) inch+=+im[1]; if(im[2]) inch+=im[2]/im[3]}}
+  else if(!fm) return null;
+  const v=ft*FT+inch*IN; return isNaN(v)?null:(neg?-v:v);
+}
+
+// ---------- state ----------
+const KEY='roomshot.v1';
+// Native iOS shell bridge (present only inside the RoomShot app)
+const NATIVE=!!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.native);
+function nativeMsg(m){try{window.webkit.messageHandlers.native.postMessage(m)}catch(e){}}
+const sample=()=>({id:uid(),name:'Sample: Conf 204',auto:true,ceil:2.74,
+  walls:[{L:5.0,A:90},{L:2.4,A:135},{L:1.70,A:135},{L:3.80,A:90}],
+  sec:{wall:0,pts:[{x:0,f:0,h:2.44},{x:2.5,f:0,h:3.35},{x:4.2,f:-0.1,h:2.80},{x:5.0,f:-0.1,h:2.54}]}});
+const blank=n=>({id:uid(),name:'Room '+n,auto:true,ceil:2.44,walls:[{L:null,A:90}],sec:{wall:0,pts:[]}});
+function uid(){return Math.random().toString(36).slice(2,9)}
+let S=load(); let tab='plan', armed=null, btState='off', lastPacket='', delArm=null;
+function load(){const ns=window.__nativeState; if(ns&&ns.rooms&&ns.rooms.length) return ns; try{const j=JSON.parse(localStorage.getItem(KEY)); if(j&&j.rooms&&j.rooms.length) return j}catch(e){} return {units:'imp',cur:0,rooms:[sample()],allDev:false}}
+function save(){const j=JSON.stringify(S); try{localStorage.setItem(KEY,j)}catch(e){} if(NATIVE) nativeMsg({cmd:'state',json:j})}
+const room=()=>S.rooms[S.cur]||S.rooms[0];
+
+// ---------- geometry ----------
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1]], cr=(a,b)=>a[0]*b[1]-a[1]*b[0], dt=(a,b)=>a[0]*b[0]+a[1]*b[1];
+const nrm=a=>{const l=Math.hypot(a[0],a[1])||1;return[a[0]/l,a[1]/l]};
+function geom(r){
+  const segs=[]; let p=[0,0], h=0;
+  r.walls.forEach((w,i)=>{ if(!(w.L>0)) return;
+    const q=[p[0]+w.L*Math.cos(h),p[1]+w.L*Math.sin(h)]; segs.push({i,a:p,b:q,L:w.L}); p=q;
+    h+=(180-(+w.A||90))*Math.PI/180; });
+  const gap=Math.hypot(p[0],p[1]); let closing=null;
+  if(r.auto&&segs.length>=2&&gap>0.003){closing={i:-1,a:p,b:[0,0],L:gap};segs.push(closing)}
+  const closed=segs.length>=3&&(!!closing||gap<0.05);
+  const pts=segs.map(s=>s.a);
+  let A=0,cx=0,cy=0; for(let k=0;k<pts.length;k++){const a=pts[k],b=pts[(k+1)%pts.length],c=cr(a,b);A+=c;cx+=(a[0]+b[0])*c;cy+=(a[1]+b[1])*c}
+  A/=2; const cen=A?[cx/(6*A),cy/(6*A)]:[0,0]; const sg=A>=0?1:-1;
+  const corners=[], cornerOf={};
+  const n=segs.length;
+  for(let k=0;k<n;k++){ if(!closed&&k===n-1) break;
+    const s1=segs[k], s2=segs[(k+1)%n]; const d1=nrm(sub(s1.b,s1.a)), d2=nrm(sub(s2.b,s2.a));
+    const turn=Math.atan2(cr(d1,d2),dt(d1,d2))*180/Math.PI; const interior=180-sg*turn;
+    corners.push({p:s1.b,d1,d2,interior}); cornerOf[s1.i]=interior; }
+  const perim=segs.reduce((t,s)=>t+s.L,0)-(closed||!r.auto?0:0);
+  let sec=null;
+  if(closed){
+    const base=segs.find(s=>s.i===r.sec.wall)||segs[0]; const u=nrm(sub(base.b,base.a)); const ts=[];
+    for(const s of segs){const e=sub(s.b,s.a), den=cr(u,e); if(Math.abs(den)<1e-9) continue;
+      const w=sub(s.a,cen), t=cr(w,e)/den, q=cr(w,u)/den; if(q>=-1e-9&&q<=1+1e-9) ts.push(t)}
+    if(ts.length>=2){const t0=Math.min(...ts),t1=Math.max(...ts);
+      sec={a:[cen[0]+u[0]*t0,cen[1]+u[1]*t0],b:[cen[0]+u[0]*t1,cen[1]+u[1]*t1],S:t1-t0,u,v:[-u[1]*sg,u[0]*sg],wall:base.i}}
+  }
+  return {segs,closing,closed,gap,area:Math.abs(A),sg,cen,corners,cornerOf,perim,sec};
+}
+function secProfile(r,g){
+  const pts=r.sec.pts.filter(p=>p.x!=null&&p.h!=null).map(p=>({x:p.x,f:p.f||0,h:p.h})).sort((a,b)=>a.x-b.x);
+  if(!pts.length) return null;
+  const X1=Math.max(g.sec?g.sec.S:0,pts[pts.length-1].x,0.5); const pr=pts.slice();
+  if(pr[0].x>0.001) pr.unshift({...pr[0],x:0,pad:1});
+  if(pr[pr.length-1].x<X1-0.001) pr.push({...pr[pr.length-1],x:X1,pad:1});
+  let area=0; for(let k=1;k<pr.length;k++) area+=(pr[k].x-pr[k-1].x)*(pr[k].h+pr[k-1].h)/2;
+  return {pts,pr,X1,avg:area/X1};
+}
+
+// ---------- drawing ----------
+const SCREEN={sheet:'var(--sheet)',ink:'var(--ink)',mute:'var(--mute)',line:'var(--line)',accent:'var(--accent)',fill:'var(--fill)',grid:'var(--grid)',mono:"'IBM Plex Mono',ui-monospace,Menlo,monospace",disp:"'Barlow Condensed','Arial Narrow',sans-serif"};
+const PRINT={sheet:'#FFFFFF',ink:'#1B2420',mute:'#5E6B66',line:'#D3DBD7',accent:'#E0362C',fill:'#EDF2EF',grid:'#E6ECE9',mono:"Menlo,Consolas,monospace",disp:"'Arial Narrow',Arial,sans-serif"};
+const f1=n=>Math.round(n*10)/10;
+function txt(x,y,t,P,o={}){
+  const sz=o.size||12, rot=o.rot?` transform="rotate(${f1(o.rot)} ${f1(x)} ${f1(y)})"`:'';
+  return `<text x="${f1(x)}" y="${f1(y)}" text-anchor="${o.anchor||'middle'}" dominant-baseline="central"${rot} style="font-family:${o.font||P.mono};font-size:${sz}px;font-weight:${o.w||500};fill:${o.fill||P.ink};paint-order:stroke;stroke:${P.sheet};stroke-width:4px;stroke-linejoin:round">${t}</text>`;
+}
+function emptySVG(W,H,P,msg){return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"><rect width="${W}" height="${H}" style="fill:${P.sheet}"/>${txt(W/2,H/2,msg,P,{font:P.disp,size:15,fill:P.mute,w:600})}</svg>`}
+function upright(a){a=a*180/Math.PI; if(a>90)a-=180; if(a<=-90)a+=180; return a}
+
+function planSVG(r,g,P,armedKey){
+  const W=420;
+  if(!g.segs.length) return emptySVG(W,260,P,'Aim at Wall 1 and fire the meter');
+  const xs=[],ys=[]; g.segs.forEach(s=>{xs.push(s.a[0],s.b[0]);ys.push(s.a[1],s.b[1])});
+  const minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
+  const bw=Math.max(maxx-minx,0.6),bh=Math.max(maxy-miny,0.6),pad=56;
+  const H=Math.round(Math.min(460,Math.max(250,(W-2*pad)*bh/bw+2*pad)));
+  const s=Math.min((W-2*pad)/bw,(H-2*pad)/bh), ox=(W-bw*s)/2, oy=(H-bh*s)/2;
+  const X=x=>ox+(x-minx)*s, Y=y=>H-oy-(y-miny)*s, SP=p=>[X(p[0]),Y(p[1])];
+  let gs=(S.units==='imp'?FT:0.5)*s; if(gs<8) gs*=5;
+  let o=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="pg" width="${f1(gs)}" height="${f1(gs)}" patternUnits="userSpaceOnUse" x="${f1(X(0))}" y="${f1(Y(0))}"><path d="M ${f1(gs)} 0 L 0 0 0 ${f1(gs)}" style="fill:none;stroke:${P.grid};stroke-width:1"/></pattern></defs>`;
+  o+=`<rect width="${W}" height="${H}" style="fill:${P.sheet}"/><rect width="${W}" height="${H}" style="fill:url(#pg)"/>`;
+  const ptsStr=g.segs.map(sg=>SP(sg.a).map(f1).join(',')).join(' ');
+  if(g.closed) o+=`<polygon points="${ptsStr}" style="fill:${P.fill};stroke:${P.ink};stroke-width:3;stroke-linejoin:miter"/>`;
+  else{ const last=g.segs[g.segs.length-1]; o+=`<polyline points="${ptsStr} ${SP(last.b).map(f1).join(',')}" style="fill:none;stroke:${P.ink};stroke-width:3;stroke-linejoin:miter"/>`;
+    if(g.gap>0.003&&g.segs.length>1){const a=SP(last.b),b=SP([0,0]); o+=`<line x1="${f1(a[0])}" y1="${f1(a[1])}" x2="${f1(b[0])}" y2="${f1(b[1])}" style="stroke:${P.accent};stroke-width:1.5;stroke-dasharray:4 4"/>`+txt((a[0]+b[0])/2,(a[1]+b[1])/2-10,'gap '+fmt(g.gap),P,{fill:P.accent,size:11})}}
+  // section line
+  if(g.sec&&r.sec.pts.length){const a=SP(g.sec.a),b=SP(g.sec.b), v=[g.sec.v[0],-g.sec.v[1]];
+    o+=`<line x1="${f1(a[0])}" y1="${f1(a[1])}" x2="${f1(b[0])}" y2="${f1(b[1])}" style="stroke:${P.accent};stroke-width:1.3;stroke-dasharray:10 3 2 3"/>`;
+    for(const p of [a,b]){const tip=[p[0]+v[0]*16,p[1]+v[1]*16], q=[-v[1],v[0]];
+      o+=`<path d="M ${f1(p[0]+q[0]*5)} ${f1(p[1]+q[1]*5)} L ${f1(tip[0])} ${f1(tip[1])} L ${f1(p[0]-q[0]*5)} ${f1(p[1]-q[1]*5)} Z" style="fill:${P.accent}"/>`+txt(p[0]-v[0]*12,p[1]-v[1]*12,'A',P,{font:P.disp,size:14,w:700,fill:P.accent})}}
+  // walls: highlight + labels
+  g.segs.forEach((sg,k)=>{
+    const a=SP(sg.a),b=SP(sg.b), d=nrm(sub(b,a)); const nw=[sg.b[1]-sg.a[1],-(sg.b[0]-sg.a[0])].map(v=>v*g.sg);
+    const ns=nrm([nw[0],-nw[1]]); const m=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+    if(armedKey==='w:'+sg.i) o+=`<line x1="${f1(a[0])}" y1="${f1(a[1])}" x2="${f1(b[0])}" y2="${f1(b[1])}" style="stroke:${P.accent};stroke-width:6;stroke-linecap:round"/>`;
+    const ang=upright(Math.atan2(d[1],d[0]));
+    o+=txt(m[0]+ns[0]*15,m[1]+ns[1]*15,fmt(sg.L),P,{rot:ang,size:12,fill:sg.i<0?P.mute:P.ink});
+    const bx=m[0]-ns[0]*14, by=m[1]-ns[1]*14;
+    o+=`<circle cx="${f1(bx)}" cy="${f1(by)}" r="8.5" style="fill:${P.sheet};stroke:${sg.i<0?P.mute:P.ink};stroke-width:1;${sg.i<0?'stroke-dasharray:2 2':''}"/>`+txt(bx,by,sg.i<0?'C':String(sg.i+1),P,{font:P.disp,size:11,w:700,fill:sg.i<0?P.mute:P.ink});
+  });
+  g.corners.forEach(c=>{ if(Math.abs(c.interior-90)<0.5) return;
+    let bi=nrm([-c.d1[0]+c.d2[0],-c.d1[1]+c.d2[1]]); if(c.interior>180) bi=[-bi[0],-bi[1]];
+    const p=SP(c.p); o+=txt(p[0]+bi[0]*24,p[1]-bi[1]*24,f1(c.interior)+'°',P,{size:10.5,fill:P.mute}); });
+  if(g.closed){const c=SP(g.cen); const pr=secProfile(r,g);
+    o+=txt(c[0],c[1]-8,fmtArea(g.area),P,{font:P.disp,size:17,w:700});
+    o+=txt(c[0],c[1]+10,'CLG '+(pr&&Math.abs(Math.max(...pr.pts.map(p=>p.h))-Math.min(...pr.pts.map(p=>p.h)))>0.01?'varies':fmt(pr?pr.pts[0].h:r.ceil)),P,{size:10.5,fill:P.mute});}
+  return o+'</svg>';
+}
+
+function secSVG(r,g,P){
+  const W=420, pr=secProfile(r,g);
+  if(!pr) return emptySVG(W,240,P,'Pick a shape preset or add points below');
+  const L=pr.pr, X1=pr.X1, gd=0.25;
+  const yMin=Math.min(...L.map(p=>p.f)), yMax=Math.max(...L.map(p=>p.f+p.h));
+  const padL=26,padR=26,padT=34,padB=58;
+  let s=(W-padL-padR)/X1; let H=padT+padB+(yMax-yMin+gd)*s;
+  if(H>440){s=(440-padT-padB)/(yMax-yMin+gd);H=440}
+  H=Math.max(H,200); const ox=(W-X1*s)/2;
+  const X=x=>ox+x*s, Y=y=>padT+(yMax-y)*s;
+  let o=`<svg viewBox="0 0 ${W} ${f1(H)}" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="7" style="stroke:${P.mute};stroke-width:1;opacity:.5"/></pattern></defs><rect width="${W}" height="${f1(H)}" style="fill:${P.sheet}"/>`;
+  const floor=L.map(p=>`${f1(X(p.x))},${f1(Y(p.f))}`).join(' '), ceil=L.map(p=>`${f1(X(p.x))},${f1(Y(p.f+p.h))}`).join(' ');
+  const gy=Y(yMin-gd);
+  o+=`<polygon points="${floor} ${f1(X(X1)+14)},${f1(Y(L[L.length-1].f))} ${f1(X(X1)+14)},${f1(gy)} ${f1(X(0)-14)},${f1(gy)} ${f1(X(0)-14)},${f1(Y(L[0].f))}" style="fill:url(#hatch)"/>`;
+  o+=`<polygon points="${floor} ${L.slice().reverse().map(p=>`${f1(X(p.x))},${f1(Y(p.f+p.h))}`).join(' ')}" style="fill:${P.fill}"/>`;
+  o+=`<polyline points="${f1(X(0)-14)},${f1(Y(L[0].f))} ${floor} ${f1(X(X1)+14)},${f1(Y(L[L.length-1].f))}" style="fill:none;stroke:${P.ink};stroke-width:2.5"/>`;
+  o+=`<polyline points="${ceil}" style="fill:none;stroke:${P.ink};stroke-width:2.5;stroke-linejoin:miter"/>`;
+  [L[0],L[L.length-1]].forEach(p=>{o+=`<line x1="${f1(X(p.x))}" y1="${f1(Y(p.f))}" x2="${f1(X(p.x))}" y2="${f1(Y(p.f+p.h))}" style="stroke:${P.ink};stroke-width:4"/>`});
+  // ceiling pitch + floor slope
+  for(let k=1;k<L.length;k++){const a=L[k-1],b=L[k],dx=b.x-a.x; if(dx<0.02) continue;
+    const cs=((b.f+b.h)-(a.f+a.h))/dx, fs=(b.f-a.f)/dx, mx=X((a.x+b.x)/2);
+    if(Math.abs(cs)>0.01){const lab=S.units==='imp'?(Math.round(Math.abs(cs)*24)/2)+'/12':f1(Math.atan(Math.abs(cs))*180/Math.PI)+'°';
+      const ang=Math.atan2(-(cs),1); o+=txt(mx,Y(((a.f+a.h)+(b.f+b.h))/2)-12,lab,P,{rot:upright(Math.atan2(-cs*s,s)),size:11,fill:P.accent})}
+    if(Math.abs(fs)>0.002){o+=txt(mx,Y((a.f+b.f)/2)-11,(fs<0?'↘ ':'↗ ')+(Math.abs(fs)*100).toFixed(1)+'%',P,{rot:upright(Math.atan2(-fs*s,s)),size:10.5,fill:P.accent})}}
+  // station height dims
+  pr.pts.forEach(p=>{ let x=X(p.x); if(p.x<0.02) x+=12; if(p.x>X1-0.02) x-=12;
+    const y1=Y(p.f),y2=Y(p.f+p.h);
+    o+=`<line x1="${f1(x)}" y1="${f1(y1)}" x2="${f1(x)}" y2="${f1(y2)}" style="stroke:${P.mute};stroke-width:1"/><line x1="${f1(x-4)}" y1="${f1(y1)}" x2="${f1(x+4)}" y2="${f1(y1)}" style="stroke:${P.mute};stroke-width:1"/><line x1="${f1(x-4)}" y1="${f1(y2)}" x2="${f1(x+4)}" y2="${f1(y2)}" style="stroke:${P.mute};stroke-width:1"/>`;
+    o+=txt(x,(y1+y2)/2,fmt(p.h),P,{rot:-90,size:11.5}); });
+  // overall width
+  const wy=gy+20; o+=`<line x1="${f1(X(0))}" y1="${f1(wy)}" x2="${f1(X(X1))}" y2="${f1(wy)}" style="stroke:${P.ink};stroke-width:1"/>`;
+  for(const x of [X(0),X(X1)]) o+=`<line x1="${f1(x)}" y1="${f1(wy-6)}" x2="${f1(x)}" y2="${f1(wy+6)}" style="stroke:${P.ink};stroke-width:1"/><line x1="${f1(x-4)}" y1="${f1(wy+4)}" x2="${f1(x+4)}" y2="${f1(wy-4)}" style="stroke:${P.ink};stroke-width:1.5"/>`;
+  o+=txt((X(0)+X(X1))/2,wy,fmt(X1),P,{size:12});
+  o+=txt(X(0),14,'A',P,{font:P.disp,size:14,w:700,fill:P.accent})+txt(X(X1),14,'A',P,{font:P.disp,size:14,w:700,fill:P.accent});
+  return o+'</svg>';
+}
+
+// ---------- UI ----------
+const $=id=>document.getElementById(id);
+function cell(k,v,o={}){
+  if(o.auto) return `<span class="cell auto">${v}</span>`;
+  const empty=v==='—'; return `<button class="cell${armed===k?' armed':''}${empty?' empty':''}" data-k="${k}">${empty&&o.ph?o.ph:v}</button>`;
+}
+function render(){
+  const r=room(), g=geom(r);
+  $('rooms').innerHTML=S.rooms.map((x,i)=>`<button class="chip${i===S.cur?' on':''}" data-room="${i}">${esc(x.name)}</button>`).join('')+`<button class="chip add" data-room="new">+ Room</button><button class="chip add" data-room="scan">Import scan</button>`;
+  [...$('tabs').children].forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
+  $('sheet').style.touchAction=tab==='3d'?'none':'';
+  $('sheet').innerHTML=tab==='plan'?planSVG(r,g,SCREEN,armed):tab==='section'?secSVG(r,g,SCREEN):view3D(r,SCREEN);
+  const pr=secProfile(r,g); const hs=pr?pr.pts.map(p=>p.h):null;
+  const clg=hs?(Math.max(...hs)-Math.min(...hs)>0.01?fmt(Math.min(...hs))+'–'+fmt(Math.max(...hs)).replace(/^/,''):fmt(hs[0])):fmt(r.ceil);
+  const avg=pr?pr.avg:r.ceil;
+  $('stats').innerHTML=`<div><dt>Area</dt><dd>${g.closed?fmtArea(g.area):'—'}</dd></div><div><dt>Perimeter</dt><dd>${g.segs.length?fmt(g.perim):'—'}</dd></div><div><dt>Ceiling</dt><dd title="${clg}">${clg}</dd></div><div><dt>Volume ≈</dt><dd>${g.closed&&avg?fmtVol(g.area*avg):'—'}</dd></div>`;
+  $('edit').innerHTML=tab==='plan'?planEditor(r,g):tab==='section'?secEditor(r,g):editor3D(r,g);
+  const bt=$('bt'); bt.dataset.s=btState;
+}
+function planEditor(r,g){
+  const lastSeg=g.segs.filter(s=>s.i>=0).pop();
+  let h=`<div class="ph"><h2>Walls</h2><span class="hint" style="margin:0">counter-clockwise</span></div>
+  <p class="hint">Tap a length to aim, then fire the meter. Tap it again to type. Corner is the inside angle at the end of each wall.</p><div class="list"><div class="row walls hd"><span>#</span><span>Length</span><span>Corner</span><span></span></div>`;
+  r.walls.forEach((w,i)=>{
+    const autoAng=g.closing&&lastSeg&&lastSeg.i===i;
+    const angTxt=autoAng?f1(g.cornerOf[i]??0)+'°':f1(w.A??90)+'°';
+    h+=`<div class="row walls"><span class="num">${i+1}</span>${cell('w:'+i,fmt(w.L),{ph:'Shoot'})}${autoAng?cell('',angTxt,{auto:1}):`<button class="cell" data-k="a:${i}">${angTxt}</button>`}<button class="del" data-act="delWall" data-i="${i}" aria-label="Delete wall ${i+1}">×</button></div>`;
+  });
+  if(g.closing) h+=`<div class="row walls"><span class="num">C</span>${cell('',fmt(g.closing.L)+' auto',{auto:1})}${cell('',f1(g.cornerOf[-1]??0)+'°',{auto:1})}<span></span></div>`;
+  h+=`</div><div class="bar"><button class="btn" data-act="addWall">+ Wall</button></div>
+  <label class="switch"><input type="checkbox" id="auto"${r.auto?' checked':''}> Close the last wall automatically</label>
+  ${!r.auto&&g.segs.length>2?`<p class="hint">Closure error: <b style="color:${g.gap<0.05?'var(--ok)':'var(--accent)'}">${fmt(g.gap)}</b></p>`:''}
+  <div class="section-gap"></div><div class="ph"><h2>Room</h2></div>
+  <div class="field"><label for="rname">Name</label><input class="txt" id="rname" value="${esc(r.name)}"></div>
+  <div class="field"><label>Ceiling height</label>${cell('c',fmt(r.ceil))}</div>
+  <div class="bar"><button class="btn pri" data-act="export">Save sheet image</button><button class="btn" data-act="dae">SketchUp file</button><button class="btn warn${delArm===r.id?' sure':''}" data-act="delRoom">${delArm===r.id?'Tap again to delete':'Delete room'}</button></div>`;
+  return h;
+}
+function secEditor(r,g){
+  const opts=g.segs.filter(s=>s.i>=0).map(s=>`<option value="${s.i}"${(g.sec&&g.sec.wall===s.i)?' selected':''}>Wall ${s.i+1}</option>`).join('');
+  let h=`<div class="ph"><h2>Section A–A</h2></div>
+  <p class="hint">${g.sec?`Cut through the middle of the room, ${fmt(g.sec.S)} wide. Measure "From wall" from the left end of the cut.`:'Close the floor plan first to place the cut line.'}</p>
+  <div class="field"><label for="secwall">Runs along</label><select id="secwall">${opts}</select></div>
+  <div class="bar"><span class="hint" style="margin:0">Start from</span><button class="btn" data-act="pre" data-p="flat">Flat</button><button class="btn" data-act="pre" data-p="shed">Shed</button><button class="btn" data-act="pre" data-p="gable">Gable</button><button class="btn" data-act="pre" data-p="clear">Clear</button></div>
+  <div class="list"><div class="row pts hd"><span>#</span><span>From wall</span><span>Floor ±</span><span>Ceiling</span><span></span></div>`;
+  r.sec.pts.forEach((p,i)=>{h+=`<div class="row pts"><span class="num">${i+1}</span>${cell(`s:${i}:x`,fmt(p.x),{ph:'Shoot'})}${cell(`s:${i}:f`,fmt(p.f||0))}${cell(`s:${i}:h`,fmt(p.h),{ph:'Shoot'})}<button class="del" data-act="delPt" data-i="${i}" aria-label="Delete point ${i+1}">×</button></div>`});
+  if(!r.sec.pts.length) h+=`<div class="row"><span class="hint" style="margin:6px 0">No points yet.</span></div>`;
+  h+=`</div><div class="bar"><button class="btn" data-act="addPt">+ Point</button><button class="btn pri" data-act="export">Save sheet image</button><button class="btn" data-act="dae">SketchUp file</button></div>
+  <p class="hint">At each point: shoot the distance from the wall, then set the meter on the floor and shoot straight up. Floor ± is the rise or drop from the floor at the first point, for ramps and sloped floors.</p>`;
+  return h;
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function ref(k){const r=room(),p=k.split(':');
+  if(p[0]==='w') return [r.walls[+p[1]],'L']; if(p[0]==='a') return [r.walls[+p[1]],'A'];
+  if(p[0]==='c') return [r,'ceil']; if(p[0]==='s') return [r.sec.pts[+p[1]],{x:'x',f:'f',h:'h'}[p[2]]]; return [null]}
+function startEdit(k,btn){
+  const [o,f]=ref(k); if(!o) return; const isA=k[0]==='a';
+  const inp=document.createElement('input'); inp.className='cell'; inp.value=isA?(o[f]??90):(o[f]!=null?fmt(o[f]).replace('−','-'):'');
+  inp.setAttribute('inputmode',isA||S.units==='met'?'decimal':'text'); inp.setAttribute('aria-label','Value'); inp.id='ed-'+k.replace(/:/g,'-');
+  btn.replaceWith(inp); inp.focus(); inp.select();
+  let done=false; const commit=()=>{ if(done) return; done=true; const t=inp.value.trim();
+    if(isA){const v=parseFloat(t); if(!isNaN(v)&&v>0&&v<360) o[f]=v}
+    else if(t===''){o[f]=f==='f'?0:null}
+    else{const v=parseLen(t); if(v==null) toast('Couldn\'t read "'+t+'". Try 12\' 6 1/2" or 3.81m'); else o[f]=v}
+    if(armed===k&&!isA&&o[f]!=null) advance(); save(); render(); };
+  inp.addEventListener('blur',commit); inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur()} if(e.key==='Escape'){done=true;render()}});
+}
+function advance(){
+  const r=room(),p=(armed||'').split(':');
+  if(p[0]==='w'){const i=+p[1]; if(i===r.walls.length-1) r.walls.push({L:null,A:90}); armed='w:'+(i+1)}
+  else if(p[0]==='s'){const i=+p[1];
+    if(p[2]==='x'||p[2]==='f') armed=`s:${i}:h`;
+    else{ if(i===r.sec.pts.length-1) r.sec.pts.push({x:null,f:r.sec.pts[i].f||0,h:null}); armed=`s:${i+1}:x`}}
+  else armed=null;
+}
+function applyReading(m){
+  if(!armed){toast('Got '+fmt(m)+' — tap a field to aim first');return}
+  const [o,f]=ref(armed); if(!o){armed=null;return}
+  o[f]=m; toast(fmt(m)); advance(); save(); render();
+  const el=document.querySelector('.cell.armed'); if(el) el.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+let tt; function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('show'),2200)}
+
+document.addEventListener('click',e=>{
+  const t=e.target.closest('button'); if(!t) return;
+  if(t.dataset.tab){tab=t.dataset.tab;armed=null;render();return}
+  if(t.dataset.room==='scan'){pickScan();return}
+  if(t.dataset.room!=null){ if(t.dataset.room==='new'){S.rooms.push(blank(S.rooms.length+1));S.cur=S.rooms.length-1;tab='plan';armed='w:0'} else {S.cur=+t.dataset.room;armed=null} delArm=null;save();render();return}
+  if(t.dataset.k!=null&&t.dataset.k!==''){const k=t.dataset.k; if(k[0]==='a'||armed===k) startEdit(k,t); else {armed=k;render()} return}
+  const r=room(), a=t.dataset.act; if(!a) return;
+  if(a!=='delRoom') delArm=null;
+  if(a==='addWall'){r.walls.push({L:null,A:90});armed='w:'+(r.walls.length-1)}
+  if(a==='delWall'){r.walls.splice(+t.dataset.i,1); if(!r.walls.length) r.walls.push({L:null,A:90}); armed=null}
+  if(a==='addPt'){const last=r.sec.pts[r.sec.pts.length-1]; r.sec.pts.push({x:null,f:last?last.f||0:0,h:null}); armed=`s:${r.sec.pts.length-1}:x`}
+  if(a==='delPt'){r.sec.pts.splice(+t.dataset.i,1);armed=null}
+  if(a==='pre'){const g=geom(r),W=g.sec?g.sec.S:4,c=r.ceil||2.44,p=t.dataset.p;
+    r.sec.pts=p==='flat'?[{x:0,f:0,h:c},{x:W,f:0,h:c}]:p==='shed'?[{x:0,f:0,h:c},{x:W,f:0,h:c+W*0.25}]:p==='gable'?[{x:0,f:0,h:c},{x:W/2,f:0,h:c+W/2/3},{x:W,f:0,h:c}]:[];
+    armed=r.sec.pts.length?'s:0:h':null; if(p!=='clear') toast('Now shoot each point to replace the guesses')}
+  if(a==='delRoom'){ if(delArm!==r.id){delArm=r.id} else {S.rooms.splice(S.cur,1); if(!S.rooms.length) S.rooms.push(blank(1)); S.cur=0; delArm=null; armed=null}}
+  if(a==='export'){exportSheet();return}
+  if(a==='dae'){exportDAE();return}
+  save();render();
+});
+document.addEventListener('change',e=>{const r=room(),t=e.target;
+  if(t.id==='auto'){r.auto=t.checked}
+  if(t.id==='rname'){r.name=t.value.trim()||'Room'}
+  if(t.id==='secwall'){r.sec.wall=+t.value; if(r.scanSecs&&r.scanSecs[t.value]) r.sec.pts=JSON.parse(JSON.stringify(r.scanSecs[t.value]))}
+  save();render();});
+
+// ---------- Bluetooth (Bosch GLM "MT" protocol) ----------
+const SVC='02a6c0d0-0451-4000-b000-fb3210111989', CHR='02a6c0d1-0451-4000-b000-fb3210111989';
+let dev=null, chr=null, wake=null;
+const hex=b=>[...b].map(x=>x.toString(16).padStart(2,'0')).join(' ');
+function setBt(s,label){btState=s;$('bt').dataset.s=s;$('btLabel').textContent=label}
+async function connect(){
+  if(NATIVE){ if(btState==='on'||btState==='busy') nativeMsg({cmd:'bleDisconnect'}); else {setBt('busy','Searching…'); nativeMsg({cmd:'bleConnect'})} return }
+  if(!navigator.bluetooth){setBt('na','No Bluetooth');openModal(`<h3>Bluetooth isn't available here</h3><p>This browser can't talk to Bluetooth devices. On iPhone, open this page in the free <b>Bluefy</b> browser. On Android or a computer, use Chrome.</p><p>You can still type measurements: tap a field twice.</p><div class="bar"><button class="btn pri" data-close>OK</button></div>`);return}
+  if(dev&&dev.gatt.connected){dev.gatt.disconnect();return}
+  try{
+    setBt('busy','Pairing…');
+    const opts=S.allDev?{acceptAllDevices:true,optionalServices:[SVC]}:{filters:[{namePrefix:'GLM'},{namePrefix:'Bosch'},{namePrefix:'PLR'},{namePrefix:'GLM'},{services:[SVC]}],optionalServices:[SVC]};
+    dev=await navigator.bluetooth.requestDevice(opts);
+    dev.addEventListener('gattserverdisconnected',()=>{setBt('off','Reconnect');releaseWake()});
+    setBt('busy','Connecting…');
+    const srv=await dev.gatt.connect(); const svc=await srv.getPrimaryService(SVC); chr=await svc.getCharacteristic(CHR);
+    await chr.startNotifications(); chr.addEventListener('characteristicvaluechanged',onData);
+    await chr.writeValue(new Uint8Array([0xC0,0x55,0x02,0x01,0x00,0x1A])); // turn on measurement sync
+    setBt('on',(dev.name||'Meter').slice(0,16)); toast('Meter connected. Tap a field, then measure.'); grabWake();
+  }catch(err){ setBt('off','Connect meter'); if(err&&err.name!=='NotFoundError') toast((err&&err.message)||'Couldn\'t connect'); }
+}
+function handlePacket(b,dv){ lastPacket=hex(b);
+  if(b.length>=11&&b[0]===0xC0&&b[1]===0x55&&b[2]===0x10){const m=dv.getFloat32(7,true); if(m>0.02&&m<250) applyReading(m)}
+}
+function onData(ev){const dv=ev.target.value; handlePacket(new Uint8Array(dv.buffer,dv.byteOffset,dv.byteLength),dv)}
+window.nativeBleData=arr=>{const b=new Uint8Array(arr); handlePacket(b,new DataView(b.buffer))};
+window.nativeBle=(s,label)=>{setBt(s,label); if(s==='on') toast('Meter connected. Tap a field, then measure.')};
+async function grabWake(){try{wake=await navigator.wakeLock.request('screen')}catch(e){}}
+function releaseWake(){try{wake&&wake.release()}catch(e){} wake=null}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&btState==='on') grabWake()});
+$('bt').addEventListener('click',connect);
+
+// ---------- settings / modal ----------
+function openModal(html){$('mcard').innerHTML=html;$('modal').hidden=false}
+$('modal').addEventListener('click',e=>{if(e.target.id==='modal'||e.target.closest('[data-close]')) $('modal').hidden=true});
+$('gear').addEventListener('click',()=>{
+  openModal(`<h3>Settings</h3>
+  <div class="field"><label>Units</label><div class="seg"><button data-u="imp" class="${S.units==='imp'?'on':''}">ft-in</button><button data-u="met" class="${S.units==='met'?'on':''}">metric</button></div></div>
+  <label class="switch"><input type="checkbox" id="alldev"${S.allDev?' checked':''}> Show every Bluetooth device when pairing (use if your meter isn't listed)</label>
+  <p>Last data from meter:</p><div class="mono">${lastPacket||'nothing yet'}</div>
+  <p>Backup: copy this project, or paste one to restore it.</p>
+  <textarea class="txt" id="json">${esc(JSON.stringify(S))}</textarea>
+  <div class="bar"><button class="btn" id="copyj">Copy</button><button class="btn" id="loadj">Restore pasted</button><button class="btn pri" data-close>Done</button></div>`);
+});
+$('mcard').addEventListener('click',async e=>{const t=e.target.closest('button'); if(!t) return;
+  if(t.dataset.u){S.units=t.dataset.u;save();render();[...t.parentNode.children].forEach(b=>b.classList.toggle('on',b===t))}
+  if(t.id==='copyj'){const ta=$('json');try{await navigator.clipboard.writeText(ta.value);toast('Copied')}catch(err){ta.select();toast('Selected — copy it from the menu')}}
+  if(t.id==='loadj'){try{const j=JSON.parse($('json').value); if(!j.rooms||!j.rooms.length) throw 0; S=j;S.cur=0;save();render();$('modal').hidden=true;toast('Restored')}catch(err){toast('That text isn\'t a RoomShot backup')}}
+  if(t.id==='scanlive'){$('modal').hidden=true; nativeMsg({cmd:'scan'}); return}
+  if(t.id==='scanfile'){$('modal').hidden=true; pickFile(); return}
+  if(t.dataset.nsave!=null&&window._pngBlob){saveFile(window._pngName,window._pngBlob,'image/png'); return}
+  if(t.id==='copydae'){const ta=$('daetext');try{await navigator.clipboard.writeText(ta.value);toast('Copied')}catch(err){ta.select();toast('Selected — copy it from the menu')}}
+  if(t.dataset.savepng!=null&&dl&&window._pngBlob){try{await dl.save({filename:window._pngName,data:window._pngBlob});toast('Saved')}catch(err){}}
+  if(t.dataset.share!=null&&window._png){try{await navigator.share({files:[window._png],title:room().name})}catch(err){}}
+});
+$('mcard').addEventListener('change',e=>{if(e.target.id==='alldev'){S.allDev=e.target.checked;save()}});
+
+// ---------- export sheet ----------
+function svgImg(str){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(str)})}
+async function exportSheet(){
+  const r=room(),g=geom(r); const sc=3, W=420;
+  try{
+    const plan=await svgImg(planSVG(r,g,PRINT,null)), sec=await svgImg(secSVG(r,g,PRINT));
+    const head=70, gap=24, ph=plan.height*(W/plan.width), sh=sec.height*(W/sec.width);
+    const cv=document.createElement('canvas'); cv.width=W*sc; cv.height=(head+ph+gap+24+sh+56)*sc;
+    const c=cv.getContext('2d'); c.scale(sc,sc); c.fillStyle='#fff'; c.fillRect(0,0,W,cv.height/sc);
+    c.fillStyle='#1B2420'; c.font='700 22px "Arial Narrow",Arial,sans-serif'; c.fillText(r.name.toUpperCase(),16,32);
+    c.font='12px Menlo,monospace'; c.fillStyle='#5E6B66'; const pr=secProfile(r,g);
+    c.fillText(new Date().toLocaleDateString()+'   '+(g.closed?fmtArea(g.area):'')+'   '+(g.closed?'Vol ≈ '+fmtVol(g.area*(pr?pr.avg:r.ceil)):''),16,52);
+    c.fillStyle='#E0362C'; c.fillRect(16,head-8,W-32,2);
+    c.drawImage(plan,0,head,W,ph);
+    c.fillStyle='#1B2420'; c.font='700 15px "Arial Narrow",Arial,sans-serif'; c.fillText('SECTION A–A',16,head+ph+gap+8);
+    c.drawImage(sec,0,head+ph+gap+20,W,sh);
+    c.fillStyle='#5E6B66'; c.font='10px Menlo,monospace'; c.fillText('Field sketch. Not to scale for construction.',16,head+ph+gap+20+sh+30);
+    const url=cv.toDataURL('image/png'); window._png=null; window._pngBlob=null; window._pngName=(r.name||'room').replace(/[^\w-]+/g,'_')+'.png';
+    try{const blob=await new Promise(res=>cv.toBlob(res,'image/png')); window._pngBlob=blob; const f=new File([blob],(r.name||'room').replace(/[^\w-]+/g,'_')+'.png',{type:'image/png'}); if(navigator.canShare&&navigator.canShare({files:[f]})) window._png=f}catch(err){}
+    openModal(`<h3>Sheet ready</h3><p>Press and hold the image to save it to Photos${window._png?', or share it':''}.</p><img src="${url}" alt="Plan and section sheet for ${esc(r.name)}"><div class="bar">${window._png?'<button class="btn pri" data-share>Share…</button>':''}${dl&&window._pngBlob?'<button class="btn pri" data-savepng>Save PNG</button>':''}${NATIVE&&window._pngBlob?'<button class="btn pri" data-nsave>Save or share…</button>':''}<button class="btn" data-close>Close</button></div>`);
+  }catch(err){toast('Couldn\'t build the image: '+(err&&err.message||err))}
+}
+
+// ---------- room → 3D mesh (walls, floor, ceiling) ----------
+function clipHalf(poly,f,lim,sgn){const out=[],n=poly.length;
+  for(let i=0;i<n;i++){const P=poly[i],Q=poly[(i+1)%n],fp=(f(P)-lim)*sgn,fq=(f(Q)-lim)*sgn;
+    if(fp>=0) out.push(P); if((fp>=0)!==(fq>=0)){const t=fp/(fp-fq); out.push([P[0]+(Q[0]-P[0])*t,P[1]+(Q[1]-P[1])*t])}}
+  return out}
+function cleanPoly(p){const o=[];for(const q of p){const l=o[o.length-1]; if(!l||Math.hypot(q[0]-l[0],q[1]-l[1])>1e-6) o.push(q)}
+  if(o.length>1&&Math.hypot(o[0][0]-o[o.length-1][0],o[0][1]-o[o.length-1][1])<1e-6) o.pop();
+  let ch=true; while(ch&&o.length>3){ch=false; for(let i=0;i<o.length;i++){const a=o[(i+o.length-1)%o.length],b=o[i],c=o[(i+1)%o.length];
+    if(Math.abs(cr(sub(b,a),sub(c,b)))<1e-9){o.splice(i,1);ch=true;break}}} return o}
+function inTri(p,a,b,c){const d1=cr(sub(b,a),sub(p,a)),d2=cr(sub(c,b),sub(p,b)),d3=cr(sub(a,c),sub(p,c));return d1>=-1e-12&&d2>=-1e-12&&d3>=-1e-12}
+function earclip(pts){let A=0;for(let i=0;i<pts.length;i++)A+=cr(pts[i],pts[(i+1)%pts.length]);
+  let idx=[...pts.keys()]; if(A<0) idx.reverse(); const res=[]; let guard=0;
+  while(idx.length>3&&guard++<20000){let found=false;
+    for(let i=0;i<idx.length;i++){const a=idx[(i+idx.length-1)%idx.length],b=idx[i],c=idx[(i+1)%idx.length],P=pts[a],Q=pts[b],R=pts[c];
+      if(cr(sub(Q,P),sub(R,P))<=1e-12) continue; let bad=false;
+      for(const j of idx){if(j===a||j===b||j===c) continue; if(inTri(pts[j],P,Q,R)){bad=true;break}}
+      if(bad) continue; res.push([a,b,c]); idx.splice(i,1); found=true; break}
+    if(!found) idx.splice(0,1)}
+  if(idx.length===3) res.push(idx.slice()); return res}
+function roomMesh(r){
+  const g=geom(r); if(!g.closed) return null;
+  let poly=g.segs.map(s=>s.a); if(g.sg<0) poly=poly.slice().reverse();
+  const pr=secProfile(r,g); let F,C,toX,xs=[];
+  if(pr&&g.sec){const L=pr.pr,a=g.sec.a,u=g.sec.u; toX=p=>(p[0]-a[0])*u[0]+(p[1]-a[1])*u[1];
+    const at=(x,fn)=>{if(x<=L[0].x) return fn(L[0]); for(let k=1;k<L.length;k++) if(x<=L[k].x){const t=(x-L[k-1].x)/((L[k].x-L[k-1].x)||1);return fn(L[k-1])+(fn(L[k])-fn(L[k-1]))*t} return fn(L[L.length-1])};
+    F=p=>at(toX(p),q=>q.f); C=p=>at(toX(p),q=>q.f+q.h); xs=[...new Set(L.map(q=>+q.x.toFixed(4)))].sort((p,q)=>p-q);
+  } else {const c=r.ceil||2.44; F=()=>0; C=()=>c; toX=()=>0}
+  const m={walls:[],floor:[],ceil:[],wallInfo:[],poly};
+  for(let i=0;i<poly.length;i++){const A=poly[i],B=poly[(i+1)%poly.length],xa=toX(A),xb=toX(B),ts=[0,1];
+    if(Math.abs(xb-xa)>1e-6) xs.forEach(x=>{const t=(x-xa)/(xb-xa); if(t>1e-4&&t<1-1e-4) ts.push(t)}); ts.sort((p,q)=>p-q);
+    const P=ts.map(t=>[A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t]), top=P.map(p=>[p[0],p[1],C(p)]), bot=P.map(p=>[p[0],p[1],F(p)]);
+    for(let k=0;k<P.length-1;k++){m.walls.push([bot[k],top[k+1],bot[k+1]],[bot[k],top[k],top[k+1]])}
+    const d=nrm(sub(B,A)); m.wallInfo.push({top,bot,n:[-d[1],d[0]]})}
+  const bounds=[-Infinity,...xs,Infinity];
+  for(let k=0;k<bounds.length-1;k++){let pc=poly; if(bounds[k]>-Infinity) pc=clipHalf(pc,toX,bounds[k],1); if(bounds[k+1]<Infinity) pc=clipHalf(pc,toX,bounds[k+1],-1);
+    pc=cleanPoly(pc); if(pc.length<3) continue;
+    for(const [a,b,c] of earclip(pc)){const T=[pc[a],pc[b],pc[c]];
+      m.floor.push(T.map(p=>[p[0],p[1],F(p)])); m.ceil.push([T[0],T[2],T[1]].map(p=>[p[0],p[1],C(p)]))}}
+  return m}
+
+// ---------- 3D view ----------
+const view={yaw:-0.7,pitch:0.62};
+function view3D(r,P){
+  const W=420,H=330,m=roomMesh(r);
+  if(!m) return emptySVG(W,240,P,'Close the floor plan to see the 3D model');
+  const all=[...m.walls,...m.floor,...m.ceil].flat(); let cx=0,cy=0,cz=0; all.forEach(p=>{cx+=p[0];cy+=p[1];cz+=p[2]}); cx/=all.length;cy/=all.length;cz/=all.length;
+  const ca=Math.cos(view.yaw),sa=Math.sin(view.yaw),cp=Math.cos(view.pitch),sp=Math.sin(view.pitch);
+  const pj=p=>{const x=p[0]-cx,y=p[1]-cy,z=p[2]-cz,xr=ca*x-sa*y,yr=sa*x+ca*y;return[xr,yr*sp+z*cp,yr*cp-z*sp]};
+  const faceDot=n=>{const yr=sa*n[0]+ca*n[1];return yr*cp-n[2]*sp};
+  const pa=all.map(pj); const mnx=Math.min(...pa.map(p=>p[0])),mxx=Math.max(...pa.map(p=>p[0])),mny=Math.min(...pa.map(p=>p[1])),mxy=Math.max(...pa.map(p=>p[1]));
+  const s=Math.min((W-40)/((mxx-mnx)||1),(H-40)/((mxy-mny)||1)), ox=W/2-(mnx+mxx)/2*s, oy=H/2+(mny+mxy)/2*s;
+  const SP=q=>`${f1(ox+q[0]*s)},${f1(oy-q[1]*s)}`;
+  const faces=[]; const norm3=t=>{const u=[t[1][0]-t[0][0],t[1][1]-t[0][1],t[1][2]-t[0][2]],v=[t[2][0]-t[0][0],t[2][1]-t[0][1],t[2][2]-t[0][2]];const n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];const l=Math.hypot(...n)||1;return n.map(x=>x/l)};
+  m.floor.forEach(t=>{const q=t.map(pj);faces.push({q,d:(q[0][2]+q[1][2]+q[2][2])/3,k:'f'})});
+  m.walls.forEach(t=>{const n=norm3(t); if(faceDot(n)>=0) return; const q=t.map(pj); faces.push({q,d:(q[0][2]+q[1][2]+q[2][2])/3,k:'w',sh:0.05+0.16*Math.abs(n[0]*0.8+n[1]*0.6)})});
+  m.ceil.forEach(t=>{const q=t.map(pj);faces.push({q,d:(q[0][2]+q[1][2]+q[2][2])/3-100,k:'c'})});
+  faces.sort((a,b)=>b.d-a.d);
+  let o=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"><rect width="${W}" height="${H}" style="fill:${P.sheet}"/>`;
+  for(const f of faces){const pts=f.q.map(SP).join(' ');
+    if(f.k==='f') o+=`<polygon points="${pts}" style="fill:${P.fill};stroke:${P.fill};stroke-width:.6"/>`;
+    else if(f.k==='w') o+=`<polygon points="${pts}" style="fill:${P.sheet};stroke:${P.sheet};stroke-width:.6"/><polygon points="${pts}" style="fill:${P.ink};fill-opacity:${f1(f.sh*100)/100};stroke:none"/>`;
+    else o+=`<polygon points="${pts}" style="fill:${P.accent};fill-opacity:.07;stroke:none"/>`}
+  m.wallInfo.forEach(w=>{const near=faceDot([w.n[0],w.n[1],0])>=0, st=near?`stroke:${P.mute};stroke-width:1;stroke-dasharray:3 3`:`stroke:${P.ink};stroke-width:1.4`;
+    o+=`<polyline points="${w.top.map(p=>SP(pj(p))).join(' ')}" style="fill:none;${st}"/>`;
+    if(!near) o+=`<polyline points="${w.bot.map(p=>SP(pj(p))).join(' ')}" style="fill:none;stroke:${P.ink};stroke-width:1.4"/><line x1="${SP(pj(w.bot[0])).split(',')[0]}" y1="${SP(pj(w.bot[0])).split(',')[1]}" x2="${SP(pj(w.top[0])).split(',')[0]}" y2="${SP(pj(w.top[0])).split(',')[1]}" style="stroke:${P.ink};stroke-width:1.2"/>`});
+  return o+'</svg>'}
+function editor3D(r,g){
+  return `<div class="ph"><h2>3D model</h2></div>
+  <p class="hint">Drag the model to turn it. Walls nearest you are cut away so you can see in. Ceiling shape comes from the section, so it slopes in one direction.</p>
+  <div class="bar"><button class="btn pri" data-act="dae">SketchUp file (.dae)</button><button class="btn" data-act="export">Save sheet image</button></div>
+  <p class="hint">In SketchUp: File › Import, choose COLLADA (.dae). Turn on "Merge coplanar faces" in the import options. The model is in meters with Wall 1's starting corner at the origin. Walls, floor and ceiling come in as separate groups.</p>
+  ${r.src==='scan'?`<p class="hint">This room came from a scan. Editing walls by hand won't update the scanned ceiling shape.</p>`:''}`}
+(function(){let drag=null; const sh=$('sheet');
+  sh.addEventListener('pointerdown',e=>{if(tab!=='3d') return; drag={x:e.clientX,y:e.clientY}; try{sh.setPointerCapture(e.pointerId)}catch(err){}});
+  sh.addEventListener('pointermove',e=>{if(!drag) return; view.yaw+= (e.clientX-drag.x)*0.01; view.pitch=Math.min(1.45,Math.max(0.12,view.pitch+(e.clientY-drag.y)*0.008)); drag={x:e.clientX,y:e.clientY}; sh.innerHTML=view3D(room(),SCREEN)});
+  const end=()=>{drag=null}; sh.addEventListener('pointerup',end); sh.addEventListener('pointercancel',end);})();
+
+// ---------- SketchUp (.dae) export ----------
+let dl=null; (async()=>{try{if(window.claude&&window.claude.use) dl=await window.claude.use('downloads')}catch(e){}})();
+function daeFor(r){
+  const m=roomMesh(r); if(!m) return null;
+  const groups=[['Walls',m.walls,'0.92 0.92 0.89'],['Floor',m.floor,'0.70 0.67 0.62'],['Ceiling',m.ceil,'0.97 0.97 0.97']].filter(g=>g[1].length);
+  const n6=v=>(Math.round(v*1e5)/1e5);
+  let fx='',mt='',ge='',nd='';
+  for(const [nm,tris,col] of groups){const id=nm.toLowerCase(), pos=[], idx=[];
+    tris.forEach(t=>{t.forEach(p=>{pos.push(n6(p[0]),n6(p[1]),n6(p[2]))}); const b=idx.length; idx.push(b,b+1,b+2)});
+    fx+=`<effect id="${id}-fx"><profile_COMMON><technique sid="common"><lambert><diffuse><color>${col} 1</color></diffuse></lambert></technique><extra><technique profile="GOOGLEEARTH"><double_sided>1</double_sided></technique></extra></profile_COMMON></effect>`;
+    mt+=`<material id="${id}-mat" name="${nm}"><instance_effect url="#${id}-fx"/></material>`;
+    ge+=`<geometry id="${id}-geo" name="${nm}"><mesh><source id="${id}-pos"><float_array id="${id}-pos-arr" count="${pos.length}">${pos.join(' ')}</float_array><technique_common><accessor source="#${id}-pos-arr" count="${pos.length/3}" stride="3"><param name="X" type="float"/><param name="Y" type="float"/><param name="Z" type="float"/></accessor></technique_common></source><vertices id="${id}-vtx"><input semantic="POSITION" source="#${id}-pos"/></vertices><triangles material="${id}-sym" count="${tris.length}"><input semantic="VERTEX" source="#${id}-vtx" offset="0"/><p>${idx.join(' ')}</p></triangles></mesh></geometry>`;
+    nd+=`<node id="${id}-node" name="${nm}"><instance_geometry url="#${id}-geo"><bind_material><technique_common><instance_material symbol="${id}-sym" target="#${id}-mat"/></technique_common></bind_material></instance_geometry></node>`}
+  return `<?xml version="1.0" encoding="utf-8"?>\n<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1"><asset><contributor><authoring_tool>RoomShot</authoring_tool></contributor><created>${new Date().toISOString()}</created><modified>${new Date().toISOString()}</modified><unit name="meter" meter="1"/><up_axis>Z_UP</up_axis></asset><library_effects>${fx}</library_effects><library_materials>${mt}</library_materials><library_geometries>${ge}</library_geometries><library_visual_scenes><visual_scene id="scene" name="${esc(r.name)}"><node id="room" name="${esc(r.name)}">${nd}</node></visual_scene></library_visual_scenes><scene><instance_visual_scene url="#scene"/></scene></COLLADA>`}
+function blobB64(b){return new Promise((res,rej)=>{const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=rej; r.readAsDataURL(b)})}
+async function saveFile(name,text,mime){
+  if(NATIVE){const b=text instanceof Blob?text:new Blob([text],{type:mime}); nativeMsg({cmd:'save',name,b64:await blobB64(b)}); return}
+  const blob=text instanceof Blob?text:new Blob([text],{type:mime});
+  try{const f=new File([blob],name,{type:mime}); if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==='AbortError') return}
+  let framed=true; try{framed=window.self!==window.top}catch(e){}
+  if(framed&&dl){
+    try{let fn=name,data=blob; if(/\.dae$/i.test(name)){if(!window.JSZip) throw {code:'nozip'}; const z=new JSZip(); z.file(name,text); data=await z.generateAsync({type:'blob'}); fn=name.replace(/\.dae$/i,'-sketchup.zip')}
+      await dl.save({filename:fn,data}); toast(/\.zip$/.test(fn)?'Saved. Unzip it, then import the .dae in SketchUp.':'Saved '+fn); return}
+    catch(e){if(e&&(e.code==='declined'||e.code==='rate_limited')) return}}
+  if(!framed){const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},3000); toast('Saved '+name); return}
+  openModal(`<h3>Copy the SketchUp file</h3><p>This preview can't save files. Use the hosted copy of RoomShot to save directly, or copy this text into a file named <b>${esc(name)}</b>.</p><textarea class="txt" id="daetext" readonly>${esc(text)}</textarea><div class="bar"><button class="btn pri" id="copydae">Copy</button><button class="btn" data-close>Close</button></div>`)}
+function exportDAE(){const r=room(),d=daeFor(r); if(!d){toast('Close the floor plan first');return} saveFile((r.name||'room').replace(/[^\w-]+/g,'_')+'.dae',d,'model/vnd.collada+xml')}
+
+// ---------- scan import (OBJ / GLB / ZIP from LiDAR apps or Matterport) ----------
+let scan=null;
+function pickScan(){ if(!NATIVE){pickFile();return}
+  openModal(`<h3>New scan</h3><p>Scan the room with the iPhone's LiDAR, or import a file from another scanning app.</p><div class="bar"><button class="btn pri" id="scanlive">Scan with LiDAR</button><button class="btn" id="scanfile">Import a file</button><button class="btn" data-close>Cancel</button></div>`)}
+window.nativeScanReady=async n=>{openModal(`<h3>Reading scan…</h3><p>${Number(n).toLocaleString()} surface triangles.</p>`); await new Promise(r=>setTimeout(r,60));
+  try{const buf=await (await fetch('scan.bin?t='+Date.now())).arrayBuffer(); const raw=new Float32Array(buf); if(raw.length<27) throw new Error('The scan came back empty. Scan again and cover more of the room.');
+    scan={raw,name:'Scan '+new Date().toLocaleDateString(),up:'y',square:true}; orientScan(); scanModal()}
+  catch(err){openModal(`<h3>Couldn't load the scan</h3><p>${esc(err.message||String(err))}</p><div class="bar"><button class="btn pri" data-close>OK</button></div>`)}};
+function pickFile(){const i=document.createElement('input'); i.type='file'; i.addEventListener('change',()=>{if(i.files[0]) loadScan(i.files[0])}); i.click()}
+async function loadScan(file){
+  openModal(`<h3>Reading scan…</h3><p>${esc(file.name)} · ${(file.size/1048576).toFixed(1)} MB. Big Matterport files can take a minute.</p>`);
+  await new Promise(r=>setTimeout(r,50));
+  try{const raw=await readScanFile(file); if(raw.length<27) throw new Error('No geometry found in that file');
+    scan={raw,name:file.name.replace(/\.[^.]+$/,''),up:'auto',square:true}; orientScan(); scanModal();
+  }catch(err){openModal(`<h3>Couldn't read that scan</h3><p>${esc(err.message||String(err))}</p><p>Export a GLB, OBJ or GLTF (or the zip the app gives you) from your scanning app.</p><div class="bar"><button class="btn pri" data-close>OK</button></div>`)}}
+async function readScanFile(file){
+  let name=file.name.toLowerCase(), buf=await file.arrayBuffer();
+  let zip=null, dir='';
+  if(name.endsWith('.zip')){if(!window.JSZip) throw new Error('Zip support didn\'t load. Unzip the file and pick the .obj, .glb or .gltf inside.');
+    zip=await JSZip.loadAsync(buf); const ents=Object.values(zip.files).filter(f=>!f.dir&&/\.(obj|glb|gltf)$/i.test(f.name)&&!/__MACOSX/.test(f.name));
+    if(!ents.length) throw new Error('No .obj, .glb or .gltf inside that zip'); let best=null,bs=-1;
+    for(const e of ents){const b=await e.async('arraybuffer'); if(b.byteLength>bs){bs=b.byteLength;best={e,b}}} name=best.e.name.toLowerCase(); buf=best.b; dir=best.e.name.includes('/')?best.e.name.replace(/[^/]*$/,''):''}
+  if(name.endsWith('.obj')) return parseOBJ(buf); if(name.endsWith('.glb')) return parseGLB(buf);
+  if(name.endsWith('.gltf')){const json=JSON.parse(new TextDecoder().decode(buf)), bufs=[];
+    for(const b of json.buffers||[]){const u=b.uri||'';
+      if(u.startsWith('data:')) bufs.push(b64buf(u.slice(u.indexOf(',')+1)));
+      else if(zip){const f=zip.file(dir+decodeURIComponent(u))||zip.file(decodeURIComponent(u)); bufs.push(f?await f.async('arraybuffer'):null)}
+      else throw new Error('This .gltf keeps its data in a separate file. Pick the whole zip from the scanning app instead.')}
+    return parseGLTF(json,bufs)}
+  throw new Error('RoomShot reads .obj, .glb, .gltf or .zip scan files')}
+function parseOBJ(buf){const t=new TextDecoder().decode(buf), V=[], out=[]; let i=0; const n=t.length;
+  while(i<n){let j=t.indexOf('\n',i); if(j<0) j=n; const c0=t.charCodeAt(i),c1=t.charCodeAt(i+1);
+    if(c0===118&&(c1===32||c1===9)){const p=t.slice(i+2,j).trim().split(/\s+/); V.push(+p[0],+p[1],+p[2])}
+    else if(c0===102&&(c1===32||c1===9)){const p=t.slice(i+2,j).trim().split(/\s+/), nv=V.length/3, ids=p.map(s=>{const k=parseInt(s,10);return k<0?nv+k:k-1});
+      for(let k=1;k<ids.length-1;k++) for(const q of [ids[0],ids[k],ids[k+1]]) out.push(V[q*3],V[q*3+1],V[q*3+2])}
+    i=j+1}
+  return Float32Array.from(out)}
+function parseGLB(buf){const dv=new DataView(buf); if(dv.getUint32(0,true)!==0x46546C67) throw new Error('That isn\'t a GLB file');
+  let off=12,json=null,bin=null; while(off+8<=dv.byteLength){const len=dv.getUint32(off,true),type=dv.getUint32(off+4,true),st=off+8;
+    if(type===0x4E4F534A) json=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,st,len))); else if(type===0x004E4942) bin=buf.slice(st,st+len); off=st+len}
+  if(!json) throw new Error('This GLB has no geometry');
+  return parseGLTF(json,[bin])}
+function b64buf(s){const bin=atob(s),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer}
+function parseGLTF(json,bufs){
+  if((json.extensionsUsed||[]).some(x=>/draco|meshopt/i.test(x))) throw new Error('This file uses mesh compression, which RoomShot can\'t read. Turn off compression in the export settings, or export OBJ.');
+  const out=[], dvs=bufs.map(b=>b?new DataView(b):null);
+  const base=i=>{const a=json.accessors[i],bv=json.bufferViews[a.bufferView],dv=dvs[bv.buffer||0]; if(!dv) throw new Error('The scan\'s data file is missing. Send the whole zip from the scanning app.'); return{a,bv,dv,o:(bv.byteOffset||0)+(a.byteOffset||0)}};
+  const readPos=i=>{const {a,bv,dv,o}=base(i),st=bv.byteStride||12,r=new Float32Array(a.count*3); for(let k=0;k<a.count;k++){const p=o+k*st;r[k*3]=dv.getFloat32(p,true);r[k*3+1]=dv.getFloat32(p+4,true);r[k*3+2]=dv.getFloat32(p+8,true)} return r};
+  const readIdx=i=>{const {a,dv,o}=base(i),sz={5121:1,5123:2,5125:4}[a.componentType],r=new Uint32Array(a.count); for(let k=0;k<a.count;k++){const p=o+k*sz;r[k]=sz===1?dv.getUint8(p):sz===2?dv.getUint16(p,true):dv.getUint32(p,true)} return r};
+  const nodeMat=nd=>{if(nd.matrix) return nd.matrix; const [x,y,z,w]=nd.rotation||[0,0,0,1],s=nd.scale||[1,1,1],t=nd.translation||[0,0,0];
+    return[(1-2*(y*y+z*z))*s[0],2*(x*y+z*w)*s[0],2*(x*z-y*w)*s[0],0, 2*(x*y-z*w)*s[1],(1-2*(x*x+z*z))*s[1],2*(y*z+x*w)*s[1],0, 2*(x*z+y*w)*s[2],2*(y*z-x*w)*s[2],(1-2*(x*x+y*y))*s[2],0, t[0],t[1],t[2],1]};
+  const mm=(a,b)=>{const r=new Array(16);for(let c=0;c<4;c++)for(let w=0;w<4;w++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+w]*b[c*4+k];r[c*4+w]=s}return r};
+  const visit=(ni,M)=>{const nd=json.nodes[ni],Wm=mm(M,nodeMat(nd));
+    if(nd.mesh!=null) for(const pm of json.meshes[nd.mesh].primitives){if(pm.mode!=null&&pm.mode!==4) continue; const P=readPos(pm.attributes.POSITION),I=pm.indices!=null?readIdx(pm.indices):null,cnt=I?I.length:P.length/3;
+      for(let k=0;k<cnt;k++){const v=I?I[k]:k,x=P[v*3],y=P[v*3+1],z=P[v*3+2]; out.push(Wm[0]*x+Wm[4]*y+Wm[8]*z+Wm[12],Wm[1]*x+Wm[5]*y+Wm[9]*z+Wm[13],Wm[2]*x+Wm[6]*y+Wm[10]*z+Wm[14])}}
+    (nd.children||[]).forEach(c=>visit(c,Wm))};
+  const roots=json.scenes&&json.scenes.length?json.scenes[json.scene||0].nodes:json.nodes.map((_,i)=>i);
+  roots.forEach(n=>visit(n,[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1])); return Float32Array.from(out)}
+function triN(T,k){const ax=T[k+3]-T[k],ay=T[k+4]-T[k+1],az=T[k+5]-T[k+2],bx=T[k+6]-T[k],by=T[k+7]-T[k+1],bz=T[k+8]-T[k+2];return[ay*bz-az*by,az*bx-ax*bz,ax*by-ay*bx]}
+function orientScan(){
+  const R=scan.raw; let up=scan.up;
+  if(up==='auto'){const ax=[0,0,0],step=Math.max(9,Math.floor(R.length/9/200000)*9);
+    for(let k=0;k+8<R.length;k+=step){const n=triN(R,k),l=Math.hypot(...n); if(!l) continue; for(let a=0;a<3;a++) if(Math.abs(n[a])/l>0.9) ax[a]+=l}
+    up=ax[1]>=ax[2]?'y':'z'}
+  scan.upUsed=up; const T=new Float32Array(R.length);
+  for(let k=0;k<R.length;k+=3){if(up==='y'){T[k]=R[k];T[k+1]=-R[k+2];T[k+2]=R[k+1]} else {T[k]=R[k];T[k+1]=R[k+1];T[k+2]=R[k+2]}}
+  scan.T=T; analyzeScan(); scan.sliceH=Math.max(0.6,Math.min(2.3,scan.ceilLow-scan.floorZ-0.15)); runOutline()}
+function analyzeScan(){
+  const T=scan.T; let zmin=Infinity,zmax=-Infinity; for(let k=2;k<T.length;k+=3){if(T[k]<zmin)zmin=T[k];if(T[k]>zmax)zmax=T[k]}
+  const bin=0.02,nb=Math.ceil((zmax-zmin)/bin)+1,hu=new Float64Array(nb),dn=[];
+  for(let k=0;k+8<T.length;k+=9){const n=triN(T,k),l=Math.hypot(...n); if(!l) continue; const nz=n[2]/l,z=(T[k+2]+T[k+5]+T[k+8])/3;
+    if(nz>0.85) hu[Math.floor((z-zmin)/bin)]+=l; else if(nz<-0.85) dn.push([z,l])}
+  let best=0,bi=0; for(let b=0;b<nb*0.5;b++) if(hu[b]>best){best=hu[b];bi=b}
+  scan.floorZ=zmin+(bi+0.5)*bin;
+  const c=dn.filter(d=>d[0]>scan.floorZ+1.3).sort((a,b)=>a[0]-b[0]); const tot=c.reduce((t,d)=>t+d[1],0);
+  const pct=q=>{let s=0;for(const d of c){s+=d[1];if(s>=tot*q) return d[0]} return zmax};
+  scan.ceilLow=c.length?pct(0.08):zmax; scan.ceilHigh=c.length?pct(0.97):zmax}
+function sliceAt(T,z){const out=[];
+  for(let k=0;k+8<T.length;k+=9){const a=T[k+2]-z,b=T[k+5]-z,c=T[k+8]-z; if((a>0&&b>0&&c>0)||(a<0&&b<0&&c<0)) continue; const p=[];
+    for(const [i,j,di,dj] of [[k,k+3,a,b],[k+3,k+6,b,c],[k+6,k,c,a]]){if((di<0)!==(dj<0)&&di!==dj){const t=di/(di-dj);p.push(T[i]+(T[j]-T[i])*t,T[i+1]+(T[j+1]-T[i+1])*t)}}
+    if(p.length>=4) out.push(p[0],p[1],p[2],p[3])}
+  return out}
+function rdp(pts,tol){const keep=new Uint8Array(pts.length); keep[0]=keep[pts.length-1]=1; const st=[[0,pts.length-1]];
+  while(st.length){const [i,j]=st.pop(); let dm=0,di=-1; const A=pts[i],B=pts[j],d=sub(B,A),L=Math.hypot(d[0],d[1])||1e-9;
+    for(let k=i+1;k<j;k++){const e=Math.abs(cr(d,sub(pts[k],A)))/L; if(e>dm){dm=e;di=k}}
+    if(dm>tol&&di>0){keep[di]=1;st.push([i,di],[di,j])}}
+  return [...keep.keys()].filter(k=>keep[k])}
+function runOutline(){
+  const segs=sliceAt(scan.T,scan.floorZ+scan.sliceH); scan.segs=segs; scan.poly=null; scan.err='';
+  if(segs.length<16){scan.err='Nothing at this height. Move the slider.';return}
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity; for(let k=0;k<segs.length;k+=2){x0=Math.min(x0,segs[k]);x1=Math.max(x1,segs[k]);y0=Math.min(y0,segs[k+1]);y1=Math.max(y1,segs[k+1])}
+  const cs=Math.max(0.02,Math.max(x1-x0,y1-y0)/1400); x0-=0.4;y0-=0.4;x1+=0.4;y1+=0.4;
+  const GW=Math.ceil((x1-x0)/cs)+1,GH=Math.ceil((y1-y0)/cs)+1, wall=new Uint8Array(GW*GH);
+  const sp=[]; for(let k=0;k<segs.length;k+=4){const ax=segs[k],ay=segs[k+1],bx=segs[k+2],by=segs[k+3],L=Math.hypot(bx-ax,by-ay),n=Math.max(1,Math.ceil(L/(cs*0.5)));
+    for(let s=0;s<=n;s++){const x=ax+(bx-ax)*s/n,y=ay+(by-ay)*s/n; wall[Math.floor((y-y0)/cs)*GW+Math.floor((x-x0)/cs)]=1}
+    const m=Math.max(1,Math.ceil(L/0.03)); for(let s=0;s<=m;s++) sp.push(ax+(bx-ax)*s/m,ay+(by-ay)*s/m)}
+  const dil=(src,rc)=>{const a=new Uint8Array(GW*GH),b=new Uint8Array(GW*GH);
+    for(let y=0;y<GH;y++){let last=-1e9;for(let x=0;x<GW;x++){if(src[y*GW+x])last=x;if(x-last<=rc)a[y*GW+x]=1}last=1e9;for(let x=GW-1;x>=0;x--){if(src[y*GW+x])last=x;if(last-x<=rc)a[y*GW+x]=1}}
+    for(let x=0;x<GW;x++){let last=-1e9;for(let y=0;y<GH;y++){if(a[y*GW+x])last=y;if(y-last<=rc)b[y*GW+x]=1}last=1e9;for(let y=GH-1;y>=0;y--){if(a[y*GW+x])last=y;if(last-y<=rc)b[y*GW+x]=1}}
+    return b};
+  let region=null,rcUsed=0;
+  for(const r of [0.05,0.1,0.18,0.28,0.4,0.55]){const rc=Math.max(1,Math.round(r/cs)),blk=dil(wall,rc),lab=new Int32Array(GW*GH); let bestN=0,bestL=0,cur=0;
+    for(let s=0;s<GW*GH;s++){if(blk[s]||lab[s]) continue; cur++; let n=0,edge=false; const q=[s]; lab[s]=cur;
+      while(q.length){const c=q.pop(); n++; const x=c%GW,y=(c-x)/GW; if(x===0||y===0||x===GW-1||y===GH-1) edge=true;
+        for(const nb of [c-1,c+1,c-GW,c+GW]){if(nb<0||nb>=GW*GH||lab[nb]||blk[nb]) continue; if((nb===c-1&&x===0)||(nb===c+1&&x===GW-1)) continue; lab[nb]=cur; q.push(nb)}}
+      if(!edge&&n>bestN){bestN=n;bestL=cur}}
+    if(bestN*cs*cs>1.5){const reg=new Uint8Array(GW*GH); for(let s=0;s<GW*GH;s++) if(lab[s]===bestL) reg[s]=1; region=dil(reg,rc); rcUsed=r; break}}
+  if(!region){scan.err='Couldn\'t find a closed room at this height. Try another height.';return}
+  // trace outline edges (interior on the left)
+  const E=new Map(), key=(i,j)=>j*(GW+1)+i, inR=(x,y)=>x>=0&&y>=0&&x<GW&&y<GH&&region[y*GW+x];
+  const add=(a,b)=>{if(!E.has(a))E.set(a,[]);E.get(a).push(b)};
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){if(!region[y*GW+x]) continue;
+    if(!inR(x,y-1)) add(key(x,y),key(x+1,y)); if(!inR(x+1,y)) add(key(x+1,y),key(x+1,y+1)); if(!inR(x,y+1)) add(key(x+1,y+1),key(x,y+1)); if(!inR(x-1,y)) add(key(x,y+1),key(x,y))}
+  let bestLoop=null,bestA=0;
+  while(E.size){const s=E.keys().next().value; const loop=[s]; let c=s, g=0;
+    while(g++<1e6){const nx=E.get(c); if(!nx||!nx.length){E.delete(c);break} const n=nx.pop(); if(!nx.length)E.delete(c); if(n===s) break; loop.push(n); c=n}
+    const P=loop.map(k=>[x0+(k%(GW+1))*cs,y0+Math.floor(k/(GW+1))*cs]); let A=0; for(let i=0;i<P.length;i++)A+=cr(P[i],P[(i+1)%P.length]);
+    if(Math.abs(A)>bestA){bestA=Math.abs(A);bestLoop=P}}
+  if(!bestLoop||bestLoop.length<4){scan.err='Outline failed at this height.';return}
+  // simplify, then fit each edge to the scanned wall points
+  const ring=bestLoop.concat([bestLoop[0]]), tolR=Math.max(0.06,cs*2.5); let far=0,fd=0; ring.forEach((p,i)=>{const d=Math.hypot(p[0]-ring[0][0],p[1]-ring[0][1]); if(d>fd){fd=d;far=i}});
+  const ks=[...rdp(ring.slice(0,far+1),tolR), ...rdp(ring.slice(far),tolR).map(k=>k+far).slice(1)]; ks.pop();
+  let lines=ks.map((k,i)=>{const a=ring[k],b=ring[ks[(i+1)%ks.length]];return{c:[(a[0]+b[0])/2,(a[1]+b[1])/2],d:nrm(sub(b,a))}});
+  const isect=(l1,l2)=>{const den=cr(l1.d,l2.d); if(Math.abs(den)<0.06) return null; const s=cr(sub(l2.c,l1.c),l2.d)/den; return[l1.c[0]+l1.d[0]*s,l1.c[1]+l1.d[1]*s]};
+  const verts=L=>L.map((l,k)=>isect(L[(k-1+L.length)%L.length],l)||l.c);
+  const tolFit=0.06+rcUsed*0.6;
+  const refine=()=>{const V=verts(lines); lines=lines.map((l,k)=>{const A=V[k],B=V[(k+1)%V.length],d=nrm(sub(B,A)),len=Math.hypot(B[0]-A[0],B[1]-A[1]); if(len<0.2) return l;
+    let n=0,mx=0,my=0; const P=[]; for(let i=0;i<sp.length;i+=2){const p=[sp[i],sp[i+1]],w=sub(p,A),t=dt(w,d),off=Math.abs(cr(d,w)); if(off<tolFit&&t>0.08*len&&t<0.92*len){P.push(p);mx+=p[0];my+=p[1];n++}}
+    if(n<8) return {c:[(A[0]+B[0])/2,(A[1]+B[1])/2],d};
+    mx/=n;my/=n; let sxx=0,sxy=0,syy=0; for(const p of P){const dx=p[0]-mx,dy=p[1]-my;sxx+=dx*dx;sxy+=dx*dy;syy+=dy*dy}
+    const th=0.5*Math.atan2(2*sxy,sxx-syy); let e=[Math.cos(th),Math.sin(th)]; if(dt(e,d)<0) e=[-e[0],-e[1]]; return{c:[mx,my],d:e}})};
+  const tidy=()=>{for(let it=0;it<200&&lines.length>3;it++){const V=verts(lines),n=lines.length; let done=true;
+    for(let k=0;k<n;k++){const a=lines[k],b=lines[(k+1)%n]; if(Math.abs(cr(a.d,b.d))<0.087){const la=Math.hypot(...sub(V[(k+1)%n],V[k])),lb=Math.hypot(...sub(V[(k+2)%n],V[(k+1)%n])); lines.splice(la>=lb?(k+1)%n:k,1); done=false; break}}
+    if(!done) continue;
+    for(let k=0;k<n;k++){const len=Math.hypot(...sub(V[(k+1)%n],V[k])); if(len<0.15){lines.splice(k,1);done=false;break}}
+    if(done) break}};
+  tidy(); refine(); tidy(); refine(); tidy();
+  if(scan.square){const V=verts(lines); let sx=0,sy=0; lines.forEach((l,k)=>{const len=Math.hypot(...sub(V[(k+1)%V.length],V[k])),a=Math.atan2(l.d[1],l.d[0])*4; sx+=Math.cos(a)*len; sy+=Math.sin(a)*len});
+    const dom=Math.atan2(sy,sx)/4; lines=lines.map(l=>{const a=Math.atan2(l.d[1],l.d[0]), q=Math.round((a-dom)/(Math.PI/2)), sn=dom+q*Math.PI/2; return Math.abs(a-sn)<0.044?{c:l.c,d:[Math.cos(sn),Math.sin(sn)]}:l}); tidy()}
+  let P=verts(lines); let A=0; for(let i=0;i<P.length;i++)A+=cr(P[i],P[(i+1)%P.length]); if(A<0) P=P.reverse();
+  if(P.length<3){scan.err='Outline failed at this height.';return}
+  scan.poly=P; scan.area=Math.abs(A)/2}
+function profileFor(T,P,w){
+  const n=P.length; let A=0,cx=0,cy=0; for(let k=0;k<n;k++){const a=P[k],b=P[(k+1)%n],c=cr(a,b);A+=c;cx+=(a[0]+b[0])*c;cy+=(a[1]+b[1])*c} A/=2; const cen=[cx/(6*A),cy/(6*A)];
+  const u=nrm(sub(P[(w+1)%n],P[w])), ts=[];
+  for(let k=0;k<n;k++){const a=P[k],e=sub(P[(k+1)%n],a),den=cr(u,e); if(Math.abs(den)<1e-9) continue; const wv=sub(a,cen),t=cr(wv,e)/den,q=cr(wv,u)/den; if(q>=-1e-9&&q<=1+1e-9) ts.push(t)}
+  if(ts.length<2) return [];
+  const t0=Math.min(...ts),Sw=Math.max(...ts)-t0,a=[cen[0]+u[0]*t0,cen[1]+u[1]*t0],nu=[-u[1],u[0]],bin=0.05,nb=Math.max(2,Math.ceil(Sw/bin)+1);
+  const fl=new Float64Array(nb).fill(NaN),ce=new Float64Array(nb).fill(NaN), fz=scan.floorZ;
+  for(let k=0;k+8<T.length;k+=9){const d=[0,3,6].map(o=>(T[k+o]-a[0])*nu[0]+(T[k+o+1]-a[1])*nu[1]); if((d[0]>0&&d[1]>0&&d[2]>0)||(d[0]<0&&d[1]<0&&d[2]<0)) continue;
+    const nv=triN(T,k),l=Math.hypot(...nv); if(!l) continue; const nz=nv[2]/l; if(Math.abs(nz)<0.3) continue; const pts=[];
+    for(const [i,j] of [[0,1],[1,2],[2,0]]){if((d[i]<0)!==(d[j]<0)&&d[i]!==d[j]){const t=d[i]/(d[i]-d[j]),o=k+i*3,p=k+j*3,x=T[o]+(T[p]-T[o])*t,y=T[o+1]+(T[p+1]-T[o+1])*t,z=T[o+2]+(T[p+2]-T[o+2])*t; pts.push([(x-a[0])*u[0]+(y-a[1])*u[1],z])}}
+    if(pts.length<2) continue; pts.sort((p,q)=>p[0]-q[0]); const [pa,pb]=[pts[0],pts[pts.length-1]];
+    for(let b=Math.max(0,Math.ceil(pa[0]/bin));b<=Math.min(nb-1,Math.floor(pb[0]/bin));b++){const t=b*bin,z=pb[0]-pa[0]>1e-6?pa[1]+(pb[1]-pa[1])*(t-pa[0])/(pb[0]-pa[0]):pa[1];
+      if(nz>0){if(z<fz+0.3&&z>fz-0.3&&!(fl[b]<=z)) fl[b]=z} else if(z>fz+1.0&&!(ce[b]>=z)) ce[b]=z}}
+  const fix=(arr,def)=>{const med=Float64Array.from(arr); for(let i=0;i<nb;i++){const w=[];for(let j=i-2;j<=i+2;j++) if(j>=0&&j<nb&&!isNaN(arr[j])) w.push(arr[j]); med[i]=w.length?w.sort((p,q)=>p-q)[w.length>>1]:NaN}
+    const known=[...med.keys()].filter(i=>!isNaN(med[i])); if(!known.length) return med.fill(def);
+    for(let i=0;i<nb;i++){if(!isNaN(med[i])) continue; let lo=-1,hi=-1; for(const k of known){if(k<i)lo=k;else{hi=k;break}} med[i]=lo<0?med[hi]:hi<0?med[lo]:med[lo]+(med[hi]-med[lo])*(i-lo)/(hi-lo)} return med};
+  const F=fix(fl,fz),C=fix(ce,scan.ceilLow), X=i=>Math.min(i*bin,Sw);
+  const keep=new Set([...rdp([...Array(nb).keys()].map(i=>[X(i),C[i]]),0.03),...rdp([...Array(nb).keys()].map(i=>[X(i),F[i]]),0.02)]);
+  return [...keep].sort((p,q)=>p-q).map(i=>({x:+X(i).toFixed(3),f:+(F[i]-F[0]).toFixed(3),h:+(C[i]-F[i]).toFixed(3)}))}
+function scanPreview(){
+  const W=420,H=300,P=SCREEN,sg=scan.segs||[]; if(!sg.length) return emptySVG(W,200,P,scan.err||'Nothing to show');
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity; for(let k=0;k<sg.length;k+=2){x0=Math.min(x0,sg[k]);x1=Math.max(x1,sg[k]);y0=Math.min(y0,sg[k+1]);y1=Math.max(y1,sg[k+1])}
+  const s=Math.min((W-40)/((x1-x0)||1),(H-40)/((y1-y0)||1)),ox=(W-(x1-x0)*s)/2,oy=(H-(y1-y0)*s)/2,X=x=>f1(ox+(x-x0)*s),Y=y=>f1(H-oy-(y-y0)*s);
+  const step=Math.max(4,Math.floor(sg.length/4/15000)*4); let d=''; for(let k=0;k+3<sg.length;k+=step) d+=`M${X(sg[k])} ${Y(sg[k+1])}L${X(sg[k+2])} ${Y(sg[k+3])}`;
+  let o=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;background:${P.sheet};border:1px solid ${P.line};border-radius:8px"><path d="${d}" style="stroke:${P.mute};stroke-width:1;fill:none;opacity:.7"/>`;
+  if(scan.poly){o+=`<polygon points="${scan.poly.map(p=>X(p[0])+','+Y(p[1])).join(' ')}" style="fill:${P.accent};fill-opacity:.1;stroke:${P.accent};stroke-width:2"/>`; scan.poly.forEach(p=>{o+=`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="3.5" style="fill:${P.accent}"/>`})}
+  return o+'</svg>'}
+function scanModal(){
+  const info=scan.poly?`${scan.poly.length} walls · ${fmtArea(scan.area)} · ceiling ${fmt(scan.ceilLow-scan.floorZ)}${scan.ceilHigh-scan.ceilLow>0.1?' to '+fmt(scan.ceilHigh-scan.floorZ):''}`:(scan.err||'');
+  openModal(`<h3>Check the walls</h3><p>Grey is the scan cut at the height below. Red is the room outline RoomShot found. Furniture under this height is ignored.</p>
+  <div id="scanprev">${scanPreview()}</div><p id="scaninfo" style="color:var(--ink);font-weight:600">${esc(info)}</p>
+  <div class="field"><label for="sliceh">Cut height</label><div><input type="range" id="sliceh" min="0.4" max="${Math.max(1,scan.ceilHigh-scan.floorZ-0.03).toFixed(2)}" step="0.02" value="${scan.sliceH.toFixed(2)}" style="width:100%;accent-color:var(--accent)"><span id="slicelab" class="mono" style="display:inline-block;padding:2px 6px">${fmt(scan.sliceH)} above floor</span></div></div>
+  <div class="field"><label>Up direction</label><div class="seg"><button data-up="auto" class="${scan.up==='auto'?'on':''}">Auto (${scan.upUsed.toUpperCase()})</button><button data-up="y" class="${scan.up==='y'?'on':''}">Y up</button><button data-up="z" class="${scan.up==='z'?'on':''}">Z up</button></div></div>
+  <label class="switch"><input type="checkbox" id="squarec"${scan.square?' checked':''}> Square up corners within 2.5°</label>
+  <div class="bar"><button class="btn pri" id="scanadd"${scan.poly?'':' disabled'}>Add room</button><button class="btn" data-close>Cancel</button></div>`)}
+function refreshScan(){$('scanprev').innerHTML=scanPreview(); $('scaninfo').textContent=scan.poly?`${scan.poly.length} walls · ${fmtArea(scan.area)} · ceiling ${fmt(scan.ceilLow-scan.floorZ)}`:(scan.err||''); $('scanadd').disabled=!scan.poly}
+let sliceT; $('mcard').addEventListener('input',e=>{if(e.target.id!=='sliceh'||!scan) return; scan.sliceH=+e.target.value; $('slicelab').textContent=fmt(scan.sliceH)+' above floor'; clearTimeout(sliceT); sliceT=setTimeout(()=>{runOutline();refreshScan()},120)});
+$('mcard').addEventListener('change',e=>{if(e.target.id==='squarec'&&scan){scan.square=e.target.checked;runOutline();refreshScan()}});
+$('mcard').addEventListener('click',async e=>{const t=e.target.closest('button'); if(!t||!scan) return;
+  if(t.dataset.up){scan.up=t.dataset.up; $('scaninfo').textContent='Working…'; await new Promise(r=>setTimeout(r,30)); orientScan(); scanModal()}
+  if(t.id==='scanadd'){t.disabled=true; t.textContent='Building sections…'; await new Promise(r=>setTimeout(r,30));
+    const P=scan.poly,n=P.length;
+    const walls=P.map((p,i)=>{const q=P[(i+1)%n],nx=P[(i+2)%n],d1=nrm(sub(q,p)),d2=nrm(sub(nx,q)),turn=Math.atan2(cr(d1,d2),dt(d1,d2))*180/Math.PI;
+      return{L:+Math.hypot(q[0]-p[0],q[1]-p[1]).toFixed(4),A:+(180-turn).toFixed(3)}});
+    const secs={}; for(let w=0;w<n;w++) secs[w]=profileFor(scan.T,P,w);
+    let lw=0; walls.forEach((w,i)=>{if(w.L>walls[lw].L) lw=i});
+    const pts=secs[lw]||[], hs=pts.map(p=>p.h).sort((a,b)=>a-b);
+    const r={id:uid(),name:scan.name.slice(0,24)||'Scan',src:'scan',auto:false,ceil:hs.length?hs[hs.length>>1]:+(scan.ceilLow-scan.floorZ).toFixed(3),walls,sec:{wall:lw,pts:JSON.parse(JSON.stringify(pts))},scanSecs:secs};
+    S.rooms.push(r); S.cur=S.rooms.length-1; scan=null; armed=null; tab='plan'; save(); render(); $('modal').hidden=true; toast('Scan added: '+n+' walls')}});
+
+render();
+</script>
+
+</body></html>

@@ -1,0 +1,40 @@
+name: RoomShot
+options:
+  bundleIdPrefix: com.koreyfraz
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  RoomShot:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+      - path: Resources/web
+        type: folder
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.koreyfraz.roomshot
+        TARGETED_DEVICE_FAMILY: "1"
+        ENABLE_BITCODE: NO
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: RoomShot
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIRequiredDeviceCapabilities:
+          - arkit
+        NSCameraUsageDescription: RoomShot uses the camera and LiDAR scanner to measure rooms.
+        NSBluetoothAlwaysUsageDescription: RoomShot connects to your Bosch laser measure over Bluetooth.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
